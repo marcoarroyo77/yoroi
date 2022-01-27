@@ -216,7 +216,7 @@ type Props = {|
   +onAddMemo: WalletTransaction => void,
   +onEditMemo: WalletTransaction => void,
   +unitOfAccountSetting: UnitOfAccountSettingType,
-  +getCurrentPrice: (from: string, to: string) => ?number,
+  +getHistoricalPrice: (from: string, to: string, timestamp: number) => ?number,
   +addressLookup: ReturnType<typeof genAddressLookup>,
   +onCopyAddressTooltip: (string, string) => void,
   +notification: ?Notification,
@@ -329,20 +329,6 @@ export default class Transaction extends Component<Props, State> {
     const tokenInfo = this.props.getTokenInfo(request.entry);
     const shiftedAmount = request.entry.amount.shiftedBy(-tokenInfo.Metadata.numberOfDecimals);
 
-    if (this.props.unitOfAccountSetting.enabled === true) {
-      const { currency } = this.props.unitOfAccountSetting;
-      const price = this.props.getCurrentPrice(request.entry.identifier, currency);
-      if (price != null) {
-        return (
-          <>
-            {calculateAndFormatValue(shiftedAmount, price) + ' ' + currency}
-            <div className={styles.amountSmall}>
-              {shiftedAmount.toString()} {getTokenName(tokenInfo)}
-            </div>
-          </>
-        );
-      }
-    }
     const [beforeDecimalRewards, afterDecimalRewards] = splitAmount(
       shiftedAmount,
       tokenInfo.Metadata.numberOfDecimals
@@ -361,36 +347,95 @@ export default class Transaction extends Component<Props, State> {
     );
   };
 
+  renderAmountWithUnitOfAccount: ({|
+    entry: TokenEntry,
+    timestamp: number,
+  |}) => ?Node = request => {
+    const { currency } = this.props.unitOfAccountSetting;
+
+    if (this.props.unitOfAccountSetting.enabled) {
+      if (this.props.shouldHideBalance) {
+        return (
+          <>
+            <span>{hiddenAmount}</span>
+            {currency}
+          </>
+        );
+      }
+
+      const tokenInfo = this.props.getTokenInfo(request.entry);
+      const shiftedAmount = request.entry.amount.shiftedBy(-tokenInfo.Metadata.numberOfDecimals);
+      const price = this.props.getHistoricalPrice(
+        tokenInfo.Metadata.ticker,
+        currency,
+        request.timestamp,
+      );
+      if (price != null) {
+        const amount = calculateAndFormatValue(shiftedAmount, price);
+        const [beforeDecimal, afterDecimal] = amount.split('.');
+        const beforeDecimalWithSign = beforeDecimal.startsWith('-')
+          ? beforeDecimal
+          : '+' + beforeDecimal;
+        return (
+          <>
+            {beforeDecimalWithSign}
+            <span className={styles.afterDecimal}>
+              .{afterDecimal}{' '}
+            </span>
+            {currency}
+          </>
+        );
+      }
+    }
+
+    return (
+      <>
+        {this.renderAmountDisplay({ entry: request.entry})}
+        {' '}
+        {this.getTicker(request.entry)}
+      </>
+    );
+  }
+
   renderFeeDisplay: ({|
     amount: MultiToken,
     type: TransactionDirectionType,
+    timestamp: number,
   |}) => Node = request => {
+    if (request.type === transactionTypes.INCOME) {
+      return <span>-</span>;
+    }
     if (this.props.shouldHideBalance) {
       return <span>{hiddenAmount}</span>;
     }
     const defaultEntry = request.amount.getDefaultEntry();
     const tokenInfo = this.props.getTokenInfo(defaultEntry);
-    const shiftedAmount = defaultEntry.amount.shiftedBy(-tokenInfo.Metadata.numberOfDecimals);
+    const shiftedAmount = defaultEntry.amount.shiftedBy(-tokenInfo.Metadata.numberOfDecimals).abs();
 
-    if (this.props.unitOfAccountSetting.enabled === true) {
+    if (this.props.unitOfAccountSetting.enabled) {
       const { currency } = this.props.unitOfAccountSetting;
-      const price = this.props.getCurrentPrice(defaultEntry.identifier, currency);
+      const price = this.props.getHistoricalPrice(
+        tokenInfo.Metadata.ticker,
+        currency,
+        request.timestamp,
+      );
+
       if (price != null) {
+        const amount = calculateAndFormatValue(shiftedAmount, price);
+        const [beforeDecimal, afterDecimal] = amount.split('.');
         return (
           <>
-            {calculateAndFormatValue(shiftedAmount.abs(), price) + ' ' + currency}
-            <div className={styles.amountSmall}>
-              {shiftedAmount.abs().toString()} {getTokenName(tokenInfo)}
-            </div>
+            {beforeDecimal}
+            <span className={styles.afterDecimal}>
+              .{afterDecimal}{' '}
+            </span>
+            {currency}
           </>
         );
       }
     }
-    if (request.type === transactionTypes.INCOME) {
-      return <span>-</span>;
-    }
     const [beforeDecimalRewards, afterDecimalRewards] = splitAmount(
-      shiftedAmount.abs(),
+      shiftedAmount,
       tokenInfo.Metadata.numberOfDecimals
     );
 
@@ -398,17 +443,23 @@ export default class Transaction extends Component<Props, State> {
       <>
         {beforeDecimalRewards}
         <span className={styles.afterDecimal}>{afterDecimalRewards}</span>
+        { /*
+            The unit ('ADA') is not shown for fee when unit of account is not
+            enabled. But in case if it enabled and we failed to get the price
+            for the tx, show the unit here to avoid misleading the user.
+           */
+          this.props.unitOfAccountSetting.enabled
+            ? (' ' + tokenInfo.Metadata.ticker)
+            : ''
+        }
       </>
     );
   };
 
   getTicker: TokenEntry => string = tokenEntry => {
-    if (this.props.unitOfAccountSetting.enabled === true) {
-      return this.props.unitOfAccountSetting.currency;
-    }
     const tokenInfo = this.props.getTokenInfo(tokenEntry);
     return truncateToken(getTokenName(tokenInfo));
-  };
+  }
 
   getFingerprint: TokenEntry => string | void = tokenEntry => {
     const tokenInfo = this.props.getTokenInfo(tokenEntry);
@@ -607,14 +658,15 @@ export default class Transaction extends Component<Props, State> {
                 {this.renderFeeDisplay({
                   amount: data.fee,
                   type: data.type,
+                  timestamp: data.date.valueOf(),
                 })}
               </div>
               <div className={classnames([styles.amount])}>
                 <div className={classnames([styles.currency])}>
-                  {this.renderAmountDisplay({
+                  {this.renderAmountWithUnitOfAccount({
                     entry: data.amount.getDefaultEntry(),
-                  })}{' '}
-                  {this.getTicker(data.amount.getDefaultEntry())}
+                    timestamp: data.date.valueOf(),
+                  })}
                 </div>
                 {this.renderAssets({ assets: data.amount.nonDefaultEntries() })}
               </div>
