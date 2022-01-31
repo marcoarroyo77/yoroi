@@ -118,7 +118,10 @@ export default class WalletSendPreviewStep extends Component<Props> {
     if (ticker == null) {
       throw new Error('unexpected main token type');
     }
-    const coinPrice = this.props.getCurrentPrice(ticker, toCurrency);
+    const coinPrice = this.props.getCurrentPrice(tick
+      tokenInfo.Metadata.ticker,
+      toCurrency
+    );
 
     if (coinPrice == null) return '-';
 

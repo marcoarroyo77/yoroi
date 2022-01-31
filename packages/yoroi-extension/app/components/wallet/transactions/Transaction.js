@@ -365,8 +365,15 @@ export default class Transaction extends Component<Props, State> {
 
       const tokenInfo = this.props.getTokenInfo(request.entry);
       const shiftedAmount = request.entry.amount.shiftedBy(-tokenInfo.Metadata.numberOfDecimals);
+      const ticker = tokenInfo.Metadata.ticker;
+      if (ticker == null) {
+        throw new Error('unexpected main token type');
+      }
+      if (currency == null) {
+        throw new Error(`unexpected unit of account ${String(currency)}`);
+      }
       const price = this.props.getHistoricalPrice(
-        tokenInfo.Metadata.ticker,
+        ticker,
         currency,
         request.timestamp,
       );
@@ -414,8 +421,12 @@ export default class Transaction extends Component<Props, State> {
 
     if (this.props.unitOfAccountSetting.enabled) {
       const { currency } = this.props.unitOfAccountSetting;
+      const ticker = tokenInfo.Metadata.ticker;
+      if (ticker == null) {
+        throw new Error('unexpected main token type');
+      }
       const price = this.props.getHistoricalPrice(
-        tokenInfo.Metadata.ticker,
+        ticker,
         currency,
         request.timestamp,
       );
@@ -449,7 +460,7 @@ export default class Transaction extends Component<Props, State> {
             for the tx, show the unit here to avoid misleading the user.
            */
           this.props.unitOfAccountSetting.enabled
-            ? (' ' + tokenInfo.Metadata.ticker)
+            ? (' ' + this.getTicker(defaultEntry))
             : ''
         }
       </>
