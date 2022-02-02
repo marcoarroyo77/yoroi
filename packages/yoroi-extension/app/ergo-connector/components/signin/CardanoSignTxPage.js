@@ -190,22 +190,30 @@ class SignTxPage extends Component<Props> {
     const shiftedAmount = request.entry.amount
       .shiftedBy(-tokenInfo.Metadata.numberOfDecimals);
 
+    let fiatAmountDisplay = null;
+
     if (this.props.unitOfAccountSetting.enabled === true) {
       const { currency } = this.props.unitOfAccountSetting;
       const price = this.props.getCurrentPrice(
-        request.entry.identifier,
+        getTokenName(tokenInfo),
         currency
       );
       if (price != null) {
-        return (
+        const fiatAmount = calculateAndFormatValue(shiftedAmount, price);
+        const [beforeDecimal, afterDecimal] = fiatAmount.split('.');
+        let beforeDecimalSigned;
+        if (beforeDecimal.startsWith('-')) {
+          beforeDecimalSigned = beforeDecimal;
+        } else {
+          beforeDecimalSigned = '+' + beforeDecimal;
+        }
+        fiatAmountDisplay = (
           <>
-            <span className={styles.amountRegular}>
-              {calculateAndFormatValue(shiftedAmount, price)}
-            </span>
+            <span className={styles.amountRegular}>{beforeDecimalSigned}</span>
+            {afterDecimal && (
+              <span className={styles.afterDecimal}>.{afterDecimal}</span>
+            )}
             {' '}{currency}
-            <div className={styles.amountSmall}>
-              {shiftedAmount.toString()} {this.getTicker(tokenInfo)}
-            </div>
           </>
         );
       }
@@ -220,11 +228,31 @@ class SignTxPage extends Component<Props> {
       ? beforeDecimalRewards
       : '+' + beforeDecimalRewards;
 
-    return (
+    const cryptoAmountDisplay = (
       <>
-        <span className={styles.amountRegular}>{adjustedBefore}</span>
+        {adjustedBefore}
         <span className={styles.afterDecimal}>{afterDecimalRewards}</span>
         {' '}{this.getTicker(tokenInfo)}
+      </>
+    );
+
+    if (fiatAmountDisplay) {
+      return (
+        <>
+          <div className={styles.amountRegular}>
+            {fiatAmountDisplay}
+          </div>
+          <div className={styles.amountSmall}>
+            {cryptoAmountDisplay}
+          </div>
+        </>
+      );
+    }
+    return (
+      <>
+        <div className={styles.amountRegular}>
+          {cryptoAmountDisplay}
+        </div>
       </>
     );
   }
