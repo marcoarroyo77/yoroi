@@ -386,10 +386,12 @@ export default class Transaction extends Component<Props, State> {
         return (
           <>
             {beforeDecimalWithSign}
-            <span className={styles.afterDecimal}>
-              .{afterDecimal}{' '}
-            </span>
-            {currency}
+            {afterDecimal && (
+              <span className={styles.afterDecimal}>
+                .{afterDecimal}
+              </span>
+            )}
+            &nbsp;{currency}
           </>
         );
       }
@@ -437,10 +439,12 @@ export default class Transaction extends Component<Props, State> {
         return (
           <>
             {beforeDecimal}
-            <span className={styles.afterDecimal}>
-              .{afterDecimal}{' '}
-            </span>
-            {currency}
+            {afterDecimal && (
+              <span className={styles.afterDecimal}>
+                .{afterDecimal}
+              </span>
+            )}
+            &nbsp;{currency}
           </>
         );
       }
