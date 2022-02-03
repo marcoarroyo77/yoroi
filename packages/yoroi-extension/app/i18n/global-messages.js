@@ -613,6 +613,10 @@ const globalMessages: * = defineMessages({
     id: 'sidebar.settings',
     defaultMessage: '!!!Settings',
   },
+  experimental: {
+    id: 'sidebar.experimental',
+    defaultMessage: '!!!Experimental',
+  },
   sidebarTransfer: {
     id: 'sidebar.transfer',
     defaultMessage: '!!!Claim or transfer wallet',
