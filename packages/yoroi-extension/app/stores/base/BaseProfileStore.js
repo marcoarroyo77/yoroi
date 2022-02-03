@@ -437,7 +437,7 @@ export default class BaseProfileStore
   }
 
   getUnitOfAccountBlock: () => Promise<UnitOfAccountSettingType> = async () => {
-    let { result } = this.getUnitOfAccountRequest;
+    const { result } = this.getUnitOfAccountRequest;
     if (result == null) {
       await this.getUnitOfAccountRequest.execute();
     }
