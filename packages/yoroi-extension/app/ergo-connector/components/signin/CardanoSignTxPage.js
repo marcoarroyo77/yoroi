@@ -2,13 +2,14 @@
 // @flow
 import React, { Component } from 'react';
 import type { Node } from 'react';
-import { intlShape, defineMessages } from 'react-intl';
+import { intlShape, defineMessages, FormattedHTMLMessage } from 'react-intl';
 import type { $npm$ReactIntl$IntlFormat } from 'react-intl';
 import styles from './SignTxPage.scss';
 import { Button } from '@mui/material';
 import TextField from '../../../components/common/TextField';
 import globalMessages from '../../../i18n/global-messages';
 import { observer } from 'mobx-react';
+import { autorun } from 'mobx';
 import CopyableAddress from '../../../components/widgets/CopyableAddress';
 import config from '../../../config';
 import vjf from 'mobx-react-form/lib/validators/VJF';
@@ -36,7 +37,10 @@ import type {
   Tx,
   CardanoTx,
 } from '../../../../chrome/extension/ergo-connector/types';
-import type { CardanoConnectorSignRequest } from '../../types';
+import type {
+  CardanoConnectorSignRequest,
+  SignSubmissionErrorType
+} from '../../types';
 import ArrowRight from '../../../assets/images/arrow-right.inline.svg';
 import CardanoUtxoDetails from './CardanoUtxoDetails';
 import type CardanoTxRequest from '../../../api/ada';
@@ -55,6 +59,8 @@ type Props = {|
   +addressToDisplayString: string => string,
   +selectedExplorer: SelectedExplorer,
   +getCurrentPrice: (from: string, to: string) => ?number,
+  +isReorg: boolean,
+  +submissionError: ?SignSubmissionErrorType,
 |};
 
 const messages = defineMessages({
@@ -73,7 +79,23 @@ const messages = defineMessages({
   more: {
     id: 'connector.signin.more',
     defaultMessage: '!!!more'
-  }
+  },
+  reorgTitle: {
+    id: 'connector.signin.reorg.title',
+    defaultMessage: '!!!Add Collateral',
+  },
+  reorgMessage: {
+    id: 'connector.signin.reorg.message',
+    defaultMessage: '!!!<span>Collateral is a guarantee that prevents smart contract transaction failings and scams. It means you should make a 0 ADA transaction to generate collateral. <a>Learn more</a> about collateral.</span>'
+  },
+  incorrectWalletPasswordError: {
+    id: 'connector.signin.error.incorrectPasswordError',
+    defaultMessage: '!!!Incorrect wallet password.',
+  },
+  sendError: {
+    id: 'connector.signin.error.sendError',
+    defaultMessage: '!!!An error occured when sending the transaction.',
+  },
 });
 
 @observer
@@ -115,6 +137,7 @@ class SignTxPage extends Component<Props> {
       options: {
         validateOnChange: true,
         validationDebounceWait: config.forms.FORM_VALIDATION_DEBOUNCE_WAIT,
+        validateOnBlur: false,
       },
       plugins: {
         vjf: vjf(),
@@ -123,6 +146,13 @@ class SignTxPage extends Component<Props> {
   );
 
   componentDidMount() {
+    autorun(() => {
+      if (this.props.submissionError === 'WRONG_PASSWORD') {
+        this.form.$('walletPassword').invalidate(
+          this.context.intl.formatMessage(messages.incorrectWalletPasswordError)
+        )
+      }
+    });
     window.onresize = () => this.form.$('currentWindowHeight').set(window.innerHeight);
   }
 
@@ -306,11 +336,14 @@ class SignTxPage extends Component<Props> {
 
 
   render(): Node {
+    if (this.props.isReorg) {
+      return this.renderReorg();
+    }
     const { form } = this;
     const walletPasswordField = form.$('walletPassword');
 
     const { intl } = this.context;
-    const { txData, onCancel, } = this.props;
+    const { txData, onCancel } = this.props;
     const { showUtxoDetails, currentWindowHeight } = form.values();
 
     return (
@@ -428,6 +461,80 @@ class SignTxPage extends Component<Props> {
               />
             )
           }
+        </div>
+      </>
+    );
+  }
+
+  renderReorg(): Node {
+    const { form } = this;
+    const walletPasswordField = form.$('walletPassword');
+
+    const { intl } = this.context;
+    const { txData, onCancel, } = this.props;
+    const { showUtxoDetails, currentWindowHeight } = form.values();
+
+    return (
+      <>
+        <ProgressBar step={2} />
+        <div
+          style={{
+            height: currentWindowHeight + 'px',
+          }}
+        >
+          <div className={styles.component}>
+            <div>
+              <h1 className={styles.title}>{intl.formatMessage(messages.reorgTitle)}</h1>
+            </div>
+            <div className={styles.message}>
+              <p><FormattedHTMLMessage {...messages.reorgMessage} /></p>
+            </div>
+            <div className={styles.info}>
+              <div className={styles.infoRaw}>
+                <p className={styles.label}>
+                  {intl.formatMessage(globalMessages.feeLabel)}
+                </p>
+                <div className={styles.labelValue}>
+                  {this.renderAmountDisplay({
+                    entry: {
+                      identifier: txData.fee.tokenId,
+                      networkId: txData.fee.networkId,
+                      amount: new BigNumber(txData.fee.amount),
+                    },
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className={styles.passwordInput}>
+              <TextField
+                type="password"
+                className={styles.walletPassword}
+                {...walletPasswordField.bind()}
+                error={walletPasswordField.error}
+              />
+            </div>
+            <div className={styles.errorMessage}>
+            {this.props.submissionError === 'SEND_TX_ERROR' && (
+              intl.formatMessage(messages.sendError)
+            )}
+            </div>
+            <div className={styles.wrapperBtn}>
+              <Button
+                variant="secondary"
+                className="secondary"
+                onClick={onCancel}
+              >
+                {intl.formatMessage(globalMessages.cancel)}
+              </Button>
+              <Button
+                variant="primary"
+                disabled={!walletPasswordField.isValid}
+                onClick={this.submit.bind(this)}
+              >
+                {intl.formatMessage(globalMessages.confirm)}
+              </Button>
+            </div>
+          </div>
         </div>
       </>
     );

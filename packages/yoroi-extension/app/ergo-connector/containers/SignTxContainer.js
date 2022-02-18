@@ -20,7 +20,10 @@ import type { ISignRequest } from '../../api/common/lib/transactions/ISignReques
 import { addressToDisplayString } from '../../api/ada/lib/storage/bridge/utils';
 import { SelectedExplorer } from '../../domain/SelectedExplorer';
 import type { UnitOfAccountSettingType } from '../../types/unitOfAccountType';
-import type { CardanoConnectorSignRequest } from '../types';
+import type {
+  CardanoConnectorSignRequest,
+  SignSubmissionErrorType,
+} from '../types';
 
 type GeneratedData = typeof SignTxContainer.prototype.generated;
 
@@ -130,7 +133,8 @@ export default class SignTxContainer extends Component<
         break;
       }
       case 'tx/cardano':
-      case 'tx-create-req/cardano': {
+      case 'tx-create-req/cardano':
+      case 'tx-reorg/cardano': {
         const txData = this.generated.stores.connector.adaTransaction;
         if (txData == null) return this.renderLoading();
         component = (
@@ -173,6 +177,8 @@ export default class SignTxContainer extends Component<
               })()
             }
             unitOfAccountSetting={this.generated.stores.profile.unitOfAccount}
+            isReorg={signingMessage.sign.type === 'tx-reorg/cardano'}
+            submissionError={this.generated.stores.connector.submissionError}
           />
         );
         break;
@@ -211,6 +217,7 @@ export default class SignTxContainer extends Component<
         filteredWallets: Array<PublicDeriverCache>,
         signingRequest: ?ISignRequest<any>,
         adaTransaction: ?CardanoConnectorSignRequest,
+        submissionError: ?SignSubmissionError,
       |},
       explorers: {|
         selectedExplorer: Map<number, SelectedExplorer>,
@@ -245,6 +252,7 @@ export default class SignTxContainer extends Component<
           filteredWallets: stores.connector.filteredWallets,
           signingRequest: stores.connector.signingRequest,
           adaTransaction: stores.connector.adaTransaction,
+          submissionError: stores.connector.submissionError,
         },
         explorers: {
           selectedExplorer: stores.explorers.selectedExplorer,

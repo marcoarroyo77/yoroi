@@ -93,6 +93,23 @@
     font-weight: 400;
     color: var(--yoroi-palette-gray-800);
   }
+
+  .message {
+    padding: 10px 20px;
+    font-family: Rubik;
+    font-size: 16px;
+    letter-spacing: 0;
+    line-height: 24px;
+    p {
+      margin-bottom: 24px;
+    }
+    text-align: justify;
+  }
+
+  .errorMessage {
+    padding: 10px 20px;
+    color: var(--yoroi-palette-error-200);
+  }
 }
 
 .label {
